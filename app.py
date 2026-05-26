@@ -68,16 +68,14 @@ if uploaded_files:
             mime="application/zip"
         )
 
-# Add custom footer with signature and Instagram button
+# Add custom footer with signature and clickable Instagram logo
 st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; margin-top: 30px;">
-        <p style="font-size: 18px; font-weight: bold;">Created by Harshit😎</p>
+        <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Created by Harshit😎</p>
         <a href="https://www.instagram.com/harshit_._arora/" target="_blank" style="text-decoration: none;">
-            <button style="background-color: #E1306C; color: white; border: none; padding: 10px 24px; text-align: center; display: inline-block; font-size: 16px; font-weight: bold; margin: 4px 2px; cursor: pointer; border-radius: 8px;">
-                Follow on Instagram
-            </button>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" width="45" alt="Instagram" style="border-radius: 10px; transition: 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
         </a>
     </div>
     """,
