@@ -7,32 +7,30 @@ import datetime
 import gc
 from concurrent.futures import ThreadPoolExecutor
 
-st.set_page_config(page_title="Fast ARW to JPG Converter", page_icon="📷")
+st.set_page_config(page_title="ARW to JPG Converter", page_icon="📷")
 
-st.title("Bulk ARW to JPG Converter (Turbo Mode)")
-st.write("Convert your Sony RAW (.arw) files to JPG in parallel using multi-threading.")
+st.title("Bulk ARW to JPG Converter (Max Quality)")
+st.write("Convert your Sony RAW (.arw) files to JPG at 100% full resolution and maximum quality.")
 
 # File uploader
 uploaded_files = st.file_uploader("Choose ARW files", type=["arw"], accept_multiple_files=True)
 
-# This function handles a single file conversion
+# This function handles a single file conversion at MAX quality
 def convert_single_file(uploaded_file):
     try:
         # Read file bytes into memory
         file_bytes = io.BytesIO(uploaded_file.read())
         
-        # Process the ARW file using rawpy
+        # Process the ARW file using rawpy (Full Resolution & Camera White Balance)
         with rawpy.imread(file_bytes) as raw:
-            # half_size=True speeds up decoding by 4x if you just need quick previews/sharing.
-            # Remove half_size=True if you absolutely need maximum print resolution.
-            rgb = raw.postprocess(half_size=True) 
+            rgb = raw.postprocess(use_camera_wb=True) 
         
         # Convert numpy array to PIL Image
         img = Image.fromarray(rgb)
         
-        # Save image to buffer as JPEG
+        # Save image to buffer as maximum quality JPEG
         img_buffer = io.BytesIO()
-        img.save(img_buffer, format="JPEG", quality=85) # 85 quality drastically reduces file size while keeping details
+        img.save(img_buffer, format="JPEG", quality=100, subsampling=0) 
         
         # Generate new filename
         new_filename = uploaded_file.name.rsplit('.', 1)[0] + ".jpg"
@@ -48,18 +46,18 @@ def convert_single_file(uploaded_file):
         return None, f"Error processing {uploaded_file.name}: {e}"
 
 if uploaded_files:
-    if st.button("Convert Images Fast ⚡"):
+    if st.button("Convert Images ⚡"):
         zip_buffer = io.BytesIO()
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         num_files = len(uploaded_files)
-        status_text.text(f"Starting parallel processing for {num_files} files...")
+        status_text.text(f"Processing {num_files} files at max resolution...")
         
         converted_results = []
         
-        # Max_workers=4 processes 4 images at the exact same time
+        # Max_workers=2 to prevent the server from running out of RAM with full-res files
         with ThreadPoolExecutor(max_workers=2) as executor:
             # Map the conversion function across all uploaded files
             results = executor.map(convert_single_file, uploaded_files)
@@ -69,12 +67,12 @@ if uploaded_files:
                 if filename:
                     converted_results.append((filename, data))
                 else:
-                    st.error(data) # Contains the error message string if failed
+                    st.error(data)
                 
                 # Update progress bar smoothly
                 progress_bar.progress((i + 1) / num_files)
         
-        status_text.text("Zipping converted images...")
+        status_text.text("Zipping high-quality images...")
         
         # Write everything into the ZIP file quickly
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
