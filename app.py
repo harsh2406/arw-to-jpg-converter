@@ -3,6 +3,7 @@ import rawpy
 from PIL import Image
 import io
 import zipfile
+import datetime
 
 st.set_page_config(page_title="ARW to JPG Converter", page_icon="📷")
 
@@ -55,10 +56,30 @@ if uploaded_files:
                 
         status_text.text("Conversion complete!")
         
+        # Generate timestamped filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"converted_images_{timestamp}.zip"
+        
         # Provide the ZIP file for download
         st.download_button(
             label="Download All as ZIP",
             data=zip_buffer.getvalue(),
-            file_name="converted_images.zip",
+            file_name=zip_filename,
             mime="application/zip"
         )
+
+# Add custom footer with signature and Instagram button
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center; margin-top: 30px;">
+        <p style="font-size: 18px; font-weight: bold;">Created by Harshit😎</p>
+        <a href="https://www.instagram.com/harshit_._arora/" target="_blank" style="text-decoration: none;">
+            <button style="background-color: #E1306C; color: white; border: none; padding: 10px 24px; text-align: center; display: inline-block; font-size: 16px; font-weight: bold; margin: 4px 2px; cursor: pointer; border-radius: 8px;">
+                Follow on Instagram
+            </button>
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
