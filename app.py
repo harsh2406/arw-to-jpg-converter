@@ -60,7 +60,7 @@ if uploaded_files:
         converted_results = []
         
         # Max_workers=4 processes 4 images at the exact same time
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             # Map the conversion function across all uploaded files
             results = executor.map(convert_single_file, uploaded_files)
             
