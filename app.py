@@ -4,6 +4,7 @@ from PIL import Image
 import io
 import zipfile
 import datetime
+import gc  # Garbage collection to clear memory
 
 st.set_page_config(page_title="ARW to JPG Converter", page_icon="📷")
 
@@ -18,17 +19,16 @@ if uploaded_files:
         # Create an in-memory buffer for the ZIP file
         zip_buffer = io.BytesIO()
         
-        # We use a progress bar for better user experience
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         # Open the ZIP file in write mode
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
             for i, uploaded_file in enumerate(uploaded_files):
-                status_text.text(f"Converting {uploaded_file.name}...")
+                status_text.text(f"Converting {uploaded_file.name} ({i+1}/{len(uploaded_files)})...")
                 
                 try:
-                    # rawpy needs a bytes-like object
+                    # Read bytes
                     file_bytes = io.BytesIO(uploaded_file.read())
                     
                     # Process the ARW file
@@ -47,6 +47,13 @@ if uploaded_files:
                     
                     # Write the JPG buffer into the ZIP file
                     zip_file.writestr(new_filename, img_buffer.getvalue())
+                    
+                    # --- INTENSE MEMORY CLEANUP ---
+                    del file_bytes
+                    del rgb
+                    del img
+                    del img_buffer
+                    gc.collect()  # Force Python to clear RAM instantly
                     
                 except Exception as e:
                     st.error(f"Error processing {uploaded_file.name}: {e}")
