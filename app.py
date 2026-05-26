@@ -5,7 +5,6 @@ import io
 import zipfile
 import datetime
 import gc
-from concurrent.futures import ThreadPoolExecutor
 
 st.set_page_config(page_title="ARW to JPG Converter", page_icon="📷")
 
@@ -15,77 +14,61 @@ st.write("Convert your Sony RAW (.arw) files to JPG at 100% full resolution and 
 # File uploader
 uploaded_files = st.file_uploader("Choose ARW files", type=["arw"], accept_multiple_files=True)
 
-# This function handles a single file conversion at MAX quality
-def convert_single_file(uploaded_file):
-    try:
-        # Read file bytes into memory
-        file_bytes = io.BytesIO(uploaded_file.read())
-        
-        # Process the ARW file using rawpy (Full Resolution & Camera White Balance)
-        with rawpy.imread(file_bytes) as raw:
-            rgb = raw.postprocess(use_camera_wb=True) 
-        
-        # Convert numpy array to PIL Image
-        img = Image.fromarray(rgb)
-        
-        # Save image to buffer as maximum quality JPEG
-        img_buffer = io.BytesIO()
-        img.save(img_buffer, format="JPEG", quality=100, subsampling=0) 
-        
-        # Generate new filename
-        new_filename = uploaded_file.name.rsplit('.', 1)[0] + ".jpg"
-        
-        data = img_buffer.getvalue()
-        
-        # Explicit cleanup for this thread
-        del file_bytes, rgb, img, img_buffer
-        gc.collect()
-        
-        return new_filename, data
-    except Exception as e:
-        return None, f"Error processing {uploaded_file.name}: {e}"
-
 if uploaded_files:
-    if st.button("Convert Images ⚡"):
+    if st.button("Convert Images"):
+        # Create an in-memory buffer for the ZIP file
         zip_buffer = io.BytesIO()
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         num_files = len(uploaded_files)
-        status_text.text(f"Processing {num_files} files at max resolution...")
         
-        converted_results = []
-        
-        # Max_workers=2 to prevent the server from running out of RAM with full-res files
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            # Map the conversion function across all uploaded files
-            results = executor.map(convert_single_file, uploaded_files)
-            
-            for i, result in enumerate(results):
-                filename, data = result
-                if filename:
-                    converted_results.append((filename, data))
-                else:
-                    st.error(data)
-                
-                # Update progress bar smoothly
-                progress_bar.progress((i + 1) / num_files)
-        
-        status_text.text("Zipping high-quality images...")
-        
-        # Write everything into the ZIP file quickly
+        # Open the ZIP file in write mode
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-            for filename, data in converted_results:
-                zip_file.writestr(filename, data)
+            for i, uploaded_file in enumerate(uploaded_files):
+                status_text.text(f"Converting {uploaded_file.name} ({i+1}/{num_files})...")
                 
-        status_text.text("Conversion and Zipping complete!")
+                try:
+                    # 1. Read bytes into memory
+                    file_bytes = io.BytesIO(uploaded_file.read())
+                    
+                    # 2. Process ARW at MAXIMUM resolution & quality
+                    with rawpy.imread(file_bytes) as raw:
+                        rgb = raw.postprocess(use_camera_wb=True) 
+                    
+                    # 3. Convert to PIL Image
+                    img = Image.fromarray(rgb)
+                    
+                    # 4. Save to buffer as 100% Quality JPEG
+                    img_buffer = io.BytesIO()
+                    img.save(img_buffer, format="JPEG", quality=100, subsampling=0)
+                    
+                    # 5. Write into the ZIP
+                    new_filename = uploaded_file.name.rsplit('.', 1)[0] + ".jpg"
+                    zip_file.writestr(new_filename, img_buffer.getvalue())
+                    
+                    # --- ABSOLUTE CRITICAL MEMORY CLEANUP ---
+                    # We MUST delete these variables to survive the 1GB RAM limit
+                    del file_bytes
+                    del rgb
+                    del img
+                    del img_buffer
+                    gc.collect() # Force OS to empty the trash
+                    
+                except Exception as e:
+                    st.error(f"Error processing {uploaded_file.name}: {e}")
+                
+                # Update progress
+                progress_bar.progress((i + 1) / num_files)
+                
+        status_text.text("Conversion and Zipping complete! Ready for download.")
         
         # Generate timestamped filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"converted_images_{timestamp}.zip"
         
-        # Download button
+        # Provide the ZIP file for download
         st.download_button(
             label="Download All as ZIP",
             data=zip_buffer.getvalue(),
