@@ -4,14 +4,14 @@ from PIL import Image
 import io
 import zipfile
 import datetime
-import gc
+import gc  # Garbage collection to clear memory
 
 st.set_page_config(page_title="ARW to JPG Converter", page_icon="📷")
 
-st.title("Bulk ARW to JPG Converter (Max Quality)")
-st.write("Convert your Sony RAW (.arw) files to JPG at 100% full resolution and maximum quality.")
+st.title("Bulk ARW to JPG Converter")
+st.write("Upload your Sony RAW (.arw) files, convert them to JPG, and download them all in a single ZIP file.")
 
-# File uploader
+# File uploader allows multiple files
 uploaded_files = st.file_uploader("Choose ARW files", type=["arw"], accept_multiple_files=True)
 
 if uploaded_files:
@@ -22,47 +22,46 @@ if uploaded_files:
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        num_files = len(uploaded_files)
-        
         # Open the ZIP file in write mode
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
             for i, uploaded_file in enumerate(uploaded_files):
-                status_text.text(f"Converting {uploaded_file.name} ({i+1}/{num_files})...")
+                status_text.text(f"Converting {uploaded_file.name} ({i+1}/{len(uploaded_files)})...")
                 
                 try:
-                    # 1. Read bytes into memory
+                    # Read bytes
                     file_bytes = io.BytesIO(uploaded_file.read())
                     
-                    # 2. Process ARW at MAXIMUM resolution & quality
+                    # Process the ARW file
                     with rawpy.imread(file_bytes) as raw:
-                        rgb = raw.postprocess(use_camera_wb=True) 
+                        rgb = raw.postprocess()
                     
-                    # 3. Convert to PIL Image
+                    # Convert numpy array to PIL Image
                     img = Image.fromarray(rgb)
                     
-                    # 4. Save to buffer as 100% Quality JPEG
+                    # Save image to an in-memory buffer as JPG
                     img_buffer = io.BytesIO()
-                    img.save(img_buffer, format="JPEG", quality=100, subsampling=0)
+                    img.save(img_buffer, format="JPEG", quality=90)
                     
-                    # 5. Write into the ZIP
+                    # Create the new filename
                     new_filename = uploaded_file.name.rsplit('.', 1)[0] + ".jpg"
+                    
+                    # Write the JPG buffer into the ZIP file
                     zip_file.writestr(new_filename, img_buffer.getvalue())
                     
-                    # --- ABSOLUTE CRITICAL MEMORY CLEANUP ---
-                    # We MUST delete these variables to survive the 1GB RAM limit
+                    # --- INTENSE MEMORY CLEANUP ---
                     del file_bytes
                     del rgb
                     del img
                     del img_buffer
-                    gc.collect() # Force OS to empty the trash
+                    gc.collect()  # Force Python to clear RAM instantly
                     
                 except Exception as e:
                     st.error(f"Error processing {uploaded_file.name}: {e}")
                 
                 # Update progress
-                progress_bar.progress((i + 1) / num_files)
+                progress_bar.progress((i + 1) / len(uploaded_files))
                 
-        status_text.text("Conversion and Zipping complete! Ready for download.")
+        status_text.text("Conversion complete!")
         
         # Generate timestamped filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -76,7 +75,7 @@ if uploaded_files:
             mime="application/zip"
         )
 
-# Custom footer with signature and clickable Instagram logo
+# Add custom footer with signature and clickable Instagram logo
 st.markdown("---")
 st.markdown(
     """
